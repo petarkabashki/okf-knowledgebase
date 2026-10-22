@@ -11,6 +11,7 @@ from okf_kb.ingest import IngestionPipeline
 from okf_kb.manage import KnowledgeManager
 from okf_kb.viewer import generate_bundle_visualization
 from okf_kb.index import build_bundle_indices
+from okf_kb.product_cli import product
 from okf_kb.provenance import (
     add_verification,
     check_citations,
@@ -251,6 +252,9 @@ def deadlinks(path: str):
     for b in broken:
         console.print(f"[yellow]BROKEN[/] {b['concept_id']}: [{b['label']}]({b['target']})")
     console.print(f"\n[bold]{len(broken)} broken internal link(s).[/]")
+
+
+cli.add_command(product)
 
 
 if __name__ == "__main__":

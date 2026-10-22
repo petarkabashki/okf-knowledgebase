@@ -14,6 +14,7 @@
 - **Ingestion Pipeline**: Structured file ingestion and auto-archiving.
 - **CLI Commands**: Unified `okf-kb` CLI interface for query, validation, ingestion, and visualization.
 - **Provenance Tooling**: Per-claim citation checks, source verification checklists, `verified`/per-source `checked` stamping, staleness/deadline views, and source link checks (`okf_kb.provenance`).
+- **Product Profile**: Concept types for product briefs, directions, ideas, features and numbered decision records, with a product lifecycle (`stage`) kept separate from OKF `status`, and a checker for stages, sections and decision supersession (`okf_kb.product`, `okf-kb product ...`, `skills/okf-product/SKILL.md`).
 - **Agent Skills**: Reusable agent skill instructions (`skills/okf-knowledgebase/SKILL.md`, `skills/okf-provenance/SKILL.md`).
 
 ---
