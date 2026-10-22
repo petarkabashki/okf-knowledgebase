@@ -11,6 +11,17 @@ from okf_kb.ingest import IngestionPipeline
 from okf_kb.manage import KnowledgeManager
 from okf_kb.viewer import generate_bundle_visualization
 from okf_kb.index import build_bundle_indices
+from okf_kb.provenance import (
+    add_verification,
+    check_citations,
+    check_internal_links,
+    check_links,
+    collect_sources,
+    resolve_concept,
+    sources_to_csv,
+    sources_to_markdown,
+    upcoming,
+)
 
 console = Console()
 
@@ -134,6 +145,112 @@ def index(bundle: str):
     """Generate or update index.md files for progressive disclosure (§8)"""
     generated = build_bundle_indices(bundle)
     console.print(f"[bold green]Updated {len(generated)} index.md file(s).[/]")
+
+
+@cli.command()
+@click.argument("path", default=".")
+@click.option("--strict", is_flag=True, help="Treat warnings (uncited sources, undefined footnotes) as failures")
+def citations(path: str, strict: bool):
+    """Check per-claim attribution: every footnote resolves to a sources[].id (§5.1)"""
+    issues = check_citations(path)
+    errors = [i for i in issues if i["level"] == "error"]
+    warns = [i for i in issues if i["level"] == "warning"]
+    for i in issues:
+        colour = "bold red" if i["level"] == "error" else "yellow"
+        console.print(f"[{colour}]{i['level'].upper()}[/] {i['concept_id']}: {i['message']}")
+    console.print(f"\n[bold]Citation check:[/] {len(errors)} error(s), {len(warns)} warning(s).")
+    if errors or (strict and warns):
+        raise SystemExit(1)
+
+
+@cli.command()
+@click.argument("path", default=".")
+@click.option("--format", "fmt", type=click.Choice(["table", "csv", "md"]), default="table")
+@click.option("--unique", is_flag=True, help="One row per distinct resource URL")
+@click.option("--out", "-o", help="Write to file instead of stdout")
+def sources(path: str, fmt: str, unique: bool, out: str | None):
+    """Export every source across the bundle as a verification checklist"""
+    rows = collect_sources(path, unique=unique)
+    if fmt == "csv":
+        text = sources_to_csv(rows)
+    elif fmt == "md":
+        text = sources_to_markdown(rows)
+    else:
+        table = Table(title=f"Sources in {path} ({len(rows)})")
+        for col in ("concept_id", "source_id", "quality", "cited", "checked", "resource"):
+            table.add_column(col)
+        for r in rows:
+            table.add_row(str(r["concept_id"]), str(r["source_id"]), str(r["quality"]),
+                          "yes" if r["cited"] else "no", r["checked"], str(r["resource"]))
+        console.print(table)
+        return
+    if out:
+        Path(out).write_text(text, encoding="utf-8")
+        console.print(f"[bold green]Wrote {len(rows)} source row(s) to:[/] {out}")
+    else:
+        click.echo(text)
+
+
+@cli.command("upcoming")
+@click.argument("path", default=".")
+@click.option("--within", "within_days", default=30, show_default=True, help="Days ahead to look")
+@click.option("--field", default="stale_after", show_default=True, help="Date field to use (e.g. deadline)")
+def upcoming_cmd(path: str, within_days: int, field: str):
+    """List concepts that are stale or go stale (or hit a date field) within N days (§5.5)"""
+    rows = upcoming(path, within_days=within_days, field=field)
+    table = Table(title=f"{field} within {within_days} days")
+    for col in ("Date", "Days", "Concept", "Status", "Trust Tier"):
+        table.add_column(col)
+    for r in rows:
+        days = "[bold red]stale[/]" if r["stale"] else str(r["days"])
+        table.add_row(str(r["date"]), days, f"{r['title']} ({r['concept_id']})",
+                      str(r["programme_status"]), r["trust_tier"])
+    console.print(table)
+
+
+@cli.command()
+@click.argument("concept_id")
+@click.option("--by", required=True, help="Actor, e.g. human:peter (§7)")
+@click.option("--source", "source_id", help="Stamp one source as checked instead of the whole concept")
+@click.option("--note", help="Optional note recorded with the event")
+@click.option("--path", "-p", default=".", help="Path to OKF bundle root")
+def verify(concept_id: str, by: str, source_id: str | None, note: str | None, path: str):
+    """Record a verification event on a concept (§5.2), or a checked stamp on one source"""
+    f = resolve_concept(path, concept_id)
+    fm = add_verification(f, by=by, source_id=source_id, note=note)
+    what = f"source `{source_id}` of " if source_id else ""
+    console.print(f"[bold green]Verified {what}{f}[/] — trust tier now [magenta]{trust_tier(fm)}[/]")
+
+
+@cli.command()
+@click.argument("path", default=".")
+@click.option("--timeout", default=10.0, show_default=True)
+@click.option("--workers", default=8, show_default=True)
+@click.option("--only-broken", is_flag=True)
+def linkcheck(path: str, timeout: float, workers: int, only_broken: bool):
+    """Check that every external source URL still resolves"""
+    results = check_links(path, timeout=timeout, workers=workers)
+    table = Table(title=f"Source link check ({len(results)} URLs)")
+    for col in ("OK", "Status", "URL", "Used by", "Error"):
+        table.add_column(col)
+    for r in results:
+        if only_broken and r["ok"]:
+            continue
+        table.add_row("✓" if r["ok"] else "[red]✗[/]", str(r["status"] or "-"), r["resource"],
+                      r["concept_id"], r["error"])
+    console.print(table)
+    if any(not r["ok"] for r in results):
+        raise SystemExit(1)
+
+
+@cli.command()
+@click.argument("path", default=".")
+def deadlinks(path: str):
+    """List bundle-internal links whose target doesn't exist (§6.1 tolerates them; this surfaces them)"""
+    broken = check_internal_links(path)
+    for b in broken:
+        console.print(f"[yellow]BROKEN[/] {b['concept_id']}: [{b['label']}]({b['target']})")
+    console.print(f"\n[bold]{len(broken)} broken internal link(s).[/]")
 
 
 if __name__ == "__main__":

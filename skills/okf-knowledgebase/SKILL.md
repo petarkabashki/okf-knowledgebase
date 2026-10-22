@@ -66,6 +66,13 @@ okf-kb visualize --bundle /path/to/bundle --out viz.html
 
 # Build progressive disclosure index.md files (§8)
 okf-kb index /path/to/bundle
+
+# Provenance (§5) — see skills/okf-provenance/SKILL.md
+okf-kb citations /path/to/bundle                 # footnotes resolve to sources[].id
+okf-kb sources /path/to/bundle --format md       # verification checklist
+okf-kb upcoming /path/to/bundle --within 30      # stale / deadlines soon
+okf-kb verify concept-id --by human:<id> --path /path/to/bundle
+okf-kb linkcheck /path/to/bundle --only-broken
 ```
 
 ---

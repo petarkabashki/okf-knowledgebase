@@ -13,7 +13,8 @@
 - **Interactive Visualizer**: Renders any OKF knowledge bundle into a self-contained interactive HTML graph (Cytoscape.js force-directed graph + Markdown renderer). Runs 100% offline.
 - **Ingestion Pipeline**: Structured file ingestion and auto-archiving.
 - **CLI Commands**: Unified `okf-kb` CLI interface for query, validation, ingestion, and visualization.
-- **Agent Skill**: Includes standard reusable agent skill instructions (`skills/okf-knowledgebase/SKILL.md`).
+- **Provenance Tooling**: Per-claim citation checks, source verification checklists, `verified`/per-source `checked` stamping, staleness/deadline views, and source link checks (`okf_kb.provenance`).
+- **Agent Skills**: Reusable agent skill instructions (`skills/okf-knowledgebase/SKILL.md`, `skills/okf-provenance/SKILL.md`).
 
 ---
 
@@ -50,6 +51,14 @@ okf-kb visualize --bundle /path/to/database --out viz.html
 
 # Validate OKF conformance
 okf-kb validate /path/to/database
+
+# Provenance (§5): citation check, source checklist, staleness, verification, link liveness
+okf-kb citations /path/to/bundle
+okf-kb sources /path/to/bundle --format md --out checklist.md
+okf-kb upcoming /path/to/bundle --within 30
+okf-kb verify concept-id --by human:you --path /path/to/bundle
+okf-kb verify concept-id --source source-id --by human:you --path /path/to/bundle
+okf-kb linkcheck /path/to/bundle --only-broken
 ```
 
 ---
